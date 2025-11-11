@@ -1,0 +1,9 @@
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerBinding
+metadata:
+  name: hello-binding
+spec:
+  params:
+    # If you POST JSON {"message":"Hi!"} to the webhook, this will pass it through.
+    - name: message
+      value: $(body.message)
