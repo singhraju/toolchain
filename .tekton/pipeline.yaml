@@ -3,24 +3,24 @@ kind: Pipeline
 metadata:
   name: hello-ibmcloud-pipeline
 spec:
-  workspaces:
-    - name: ws
   params:
     - name: MESSAGE
       description: "Message to print"
       default: "Hello from IBM Cloud Tekton!"
+  workspaces:
+    - name: ws
   tasks:
     - name: hello
+      params:                           # <-- WIRE the pipeline param to the task param
+        - name: MESSAGE
+          value: $(params.MESSAGE)
       taskSpec:
         params:
-          - name: MESSAGE
+          - name: MESSAGE               # task-level param expected by the step
         steps:
           - name: print
             image: ubuntu:22.04
             script: |
               #!/usr/bin/env bash
-              set -e
-              echo "===================================="
-              echo "✅ Running inside IBM Cloud Tekton"
-              echo "✅ Message: $(params.MESSAGE)"
-              echo "===================================="
+              set -euo pipefail
+              echo "✅ $(params.MESSAGE)"
