@@ -5,7 +5,7 @@ metadata:
   name: hello-world-run
 spec:
   pipelineRef:
-    name: hello-world-pipeline   # match your pipeline name
+    name: lambda-deploy-pipeline   # match your pipeline name
   workspaces:
     - name: ws
       emptyDir: {}
