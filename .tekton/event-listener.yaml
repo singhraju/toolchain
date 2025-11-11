@@ -1,0 +1,11 @@
+apiVersion: triggers.tekton.dev/v1beta1
+kind: EventListener
+metadata:
+  name: hello-listener
+spec:
+  triggers:
+    - name: hello
+      bindings:
+        - ref: hello-binding
+      template:
+        ref: hello-template
