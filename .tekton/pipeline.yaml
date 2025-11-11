@@ -1,113 +1,23 @@
 apiVersion: tekton.dev/v1
 kind: Pipeline
 metadata:
-  name: deploy-aws-lambda-from-s3
+  name: hello-world-pipeline
 spec:
   params:
-    - name: FUNCTION_NAME
-      default: rajusin4
-    - name: S3_BUCKET
-      default: amzn-cicd-bucket
-    - name: S3_KEY
-      default: lambda.zip
-    - name: AWS_DEFAULT_REGION
-      default: ca-central-1
-    - name: ROLE_NAME
-      default: lambda-basic-exec
+    - name: MESSAGE
+      description: Message to print
+      default: "Hello, Tekton World!"
   workspaces:
     - name: ws
   tasks:
-    - name: deploy-lambda
+    - name: say-hello
       taskSpec:
-        workspaces:
-          - name: ws
         params:
-          - name: FUNCTION_NAME
-          - name: S3_BUCKET
-          - name: S3_KEY
-          - name: AWS_DEFAULT_REGION
-          - name: ROLE_NAME
+          - name: MESSAGE
         steps:
-          - name: install-and-deploy
+          - name: print-message
             image: ubuntu:22.04
-            workingDir: /workspace/ws
-            env:
-              - name: AWS_ACCESS_KEY_ID
-                valueFrom:
-                  secretKeyRef:
-                    name: aws-creds
-                    key: aws_access_key_id
-              - name: AWS_SECRET_ACCESS_KEY
-                valueFrom:
-                  secretKeyRef:
-                    name: aws-creds
-                    key: aws_secret_access_key
-              - name: AWS_DEFAULT_REGION
-                value: $(params.AWS_DEFAULT_REGION)
             script: |
               #!/usr/bin/env bash
               set -euo pipefail
-              apt-get update -y >/dev/null
-              apt-get install -y unzip curl git python3 >/dev/null
-
-              echo "Installing AWS CLI v2..."
-              curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"
-              unzip -q /tmp/awscliv2.zip -d /tmp
-              /tmp/aws/install --bin-dir /usr/local/bin --update
-              echo "AWS CLI: $(aws --version)"
-
-              FUNCTION_NAME="$(params.FUNCTION_NAME)"
-              S3_BUCKET="$(params.S3_BUCKET)"
-              S3_KEY="$(params.S3_KEY)"
-              ROLE_NAME="$(params.ROLE_NAME)"
-              REGION="$(params.AWS_DEFAULT_REGION)"
-
-              echo "=== Deploying Lambda '$FUNCTION_NAME' from s3://$S3_BUCKET/$S3_KEY ==="
-
-              # Ensure IAM role exists
-              if ! aws iam get-role --role-name "$ROLE_NAME" >/dev/null 2>&1; then
-                echo "Creating IAM role: $ROLE_NAME"
-                cat > trust-policy.json <<'EOF'
-              {
-                "Version": "2012-10-17",
-                "Statement": [
-                  {
-                    "Effect": "Allow",
-                    "Principal": { "Service": "lambda.amazonaws.com" },
-                    "Action": "sts:AssumeRole"
-                  }
-                ]
-              }
-              EOF
-                aws iam create-role \
-                  --role-name "$ROLE_NAME" \
-                  --assume-role-policy-document file://trust-policy.json
-                aws iam attach-role-policy \
-                  --role-name "$ROLE_NAME" \
-                  --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-                sleep 15
-              fi
-
-              ROLE_ARN="arn:aws:iam::$(aws sts get-caller-identity --query Account --output text):role/$ROLE_NAME"
-
-              # Create or update the Lambda
-              if aws lambda get-function --function-name "$FUNCTION_NAME" >/dev/null 2>&1; then
-                echo "Updating existing Lambda..."
-                aws lambda update-function-code \
-                  --function-name "$FUNCTION_NAME" \
-                  --s3-bucket "$S3_BUCKET" \
-                  --s3-key "$S3_KEY"
-              else
-                echo "Creating new Lambda..."
-                aws lambda create-function \
-                  --function-name "$FUNCTION_NAME" \
-                  --runtime python3.11 \
-                  --handler handler.lambda_handler \
-                  --role "$ROLE_ARN" \
-                  --code S3Bucket="$S3_BUCKET",S3Key="$S3_KEY" \
-                  --timeout 10 \
-                  --memory-size 128
-              fi
-
-              echo "✅ Lambda deployment complete!"
-              aws lambda get-function --function-name "$FUNCTION_NAME" --query 'Configuration.{FunctionName:FunctionName,LastModified:LastModified,Runtime:Runtime}' --output table
+              echo "✅ $(params.MESSAGE)"
