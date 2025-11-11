@@ -1,11 +1,13 @@
-# .tekton/pipelinerun.yaml
 apiVersion: tekton.dev/v1
 kind: PipelineRun
 metadata:
-  name: hello-world-run
+  name: hello-ibmcloud-run
 spec:
   pipelineRef:
-    name: hello-world-pipeline   # match your pipeline name
+    name: hello-ibmcloud-pipeline
+  params:
+    - name: MESSAGE
+      value: "Hello World from IBM Cloud!"
   workspaces:
     - name: ws
       emptyDir: {}
