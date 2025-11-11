@@ -15,7 +15,7 @@ spec:
         pipelineRef:
           name: hello-ibmcloud-pipeline
         params:
-          - name: MESSAGE
+          - name: MESSAGE                 # pass template param into the pipeline param
             value: $(tt.params.message)
         workspaces:
           - name: ws
