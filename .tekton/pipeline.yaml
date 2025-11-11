@@ -5,86 +5,66 @@ metadata:
 spec:
   params:
     - name: FUNCTION_NAME
-      type: string
       default: rajusin4
     - name: S3_BUCKET
-      type: string
       default: amzn-cicd-bucket
     - name: S3_KEY
-      type: string
       default: lambda.zip
-    - name: ROLE_NAME
-      type: string
-      default: lambda-basic-exec
-    - name: RUNTIME
-      type: string
-      default: python3.11
-    - name: HANDLER
-      type: string
-      default: handler.lambda_handler
     - name: AWS_DEFAULT_REGION
-      type: string
       default: ca-central-1
+    - name: ROLE_NAME
+      default: lambda-basic-exec
   workspaces:
     - name: ws
   tasks:
-    - name: deploy
+    - name: deploy-lambda
       taskSpec:
-        params:
-          - name: FUNCTION_NAME
-            type: string
-          - name: S3_BUCKET
-            type: string
-          - name: S3_KEY
-            type: string
-          - name: ROLE_NAME
-            type: string
-          - name: RUNTIME
-            type: string
-          - name: HANDLER
-            type: string
-          - name: AWS_DEFAULT_REGION
-            type: string
         workspaces:
           - name: ws
+        params:
+          - name: FUNCTION_NAME
+          - name: S3_BUCKET
+          - name: S3_KEY
+          - name: AWS_DEFAULT_REGION
+          - name: ROLE_NAME
         steps:
-          - name: create-or-update-lambda
-            image: amazon/aws-cli:2.17.5
+          - name: install-and-deploy
+            image: ubuntu:22.04
             workingDir: /workspace/ws
             env:
-              # IBM Cloud Delivery Pipeline -> Environment Properties (set these there securely)
               - name: AWS_ACCESS_KEY_ID
                 valueFrom:
                   secretKeyRef:
-                    # If you prefer pipeline properties, remove this block and set as env props
-                    name: aws-creds   # optional: if you create a K8s secret
+                    name: aws-creds
                     key: aws_access_key_id
               - name: AWS_SECRET_ACCESS_KEY
                 valueFrom:
                   secretKeyRef:
-                    name: aws-creds   # optional: if you create a K8s secret
+                    name: aws-creds
                     key: aws_secret_access_key
-              # If not using a K8s secret, Tekton will still pass env properties from the pipeline UI.
               - name: AWS_DEFAULT_REGION
                 value: $(params.AWS_DEFAULT_REGION)
             script: |
               #!/usr/bin/env bash
               set -euo pipefail
+              apt-get update -y >/dev/null
+              apt-get install -y unzip curl git python3 >/dev/null
+
+              echo "Installing AWS CLI v2..."
+              curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"
+              unzip -q /tmp/awscliv2.zip -d /tmp
+              /tmp/aws/install --bin-dir /usr/local/bin --update
+              echo "AWS CLI: $(aws --version)"
 
               FUNCTION_NAME="$(params.FUNCTION_NAME)"
               S3_BUCKET="$(params.S3_BUCKET)"
               S3_KEY="$(params.S3_KEY)"
               ROLE_NAME="$(params.ROLE_NAME)"
-              RUNTIME="$(params.RUNTIME)"
-              HANDLER="$(params.HANDLER)"
+              REGION="$(params.AWS_DEFAULT_REGION)"
 
-              echo "== Deploying Lambda =="
-              echo "Function: $FUNCTION_NAME"
-              echo "Source: s3://$S3_BUCKET/$S3_KEY"
-              echo "Region: ${AWS_DEFAULT_REGION}"
-              echo "Role: $ROLE_NAME"
+              echo "=== Deploying Lambda '$FUNCTION_NAME' from s3://$S3_BUCKET/$S3_KEY ==="
 
-              # Ensure IAM role exists (basic execution role for logs)
+              # Ensure IAM role exists
               if ! aws iam get-role --role-name "$ROLE_NAME" >/dev/null 2>&1; then
                 echo "Creating IAM role: $ROLE_NAME"
                 cat > trust-policy.json <<'EOF'
@@ -101,71 +81,33 @@ spec:
               EOF
                 aws iam create-role \
                   --role-name "$ROLE_NAME" \
-                  --assume-role-policy-document file://trust-policy.json >/dev/null
-
+                  --assume-role-policy-document file://trust-policy.json
                 aws iam attach-role-policy \
                   --role-name "$ROLE_NAME" \
-                  --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole >/dev/null
-
-                echo "Waiting for IAM role propagation..."
+                  --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
                 sleep 15
               fi
 
-              ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
-              ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/${ROLE_NAME}"
+              ROLE_ARN="arn:aws:iam::$(aws sts get-caller-identity --query Account --output text):role/$ROLE_NAME"
 
-              # Create or update Lambda from S3 ZIP
+              # Create or update the Lambda
               if aws lambda get-function --function-name "$FUNCTION_NAME" >/dev/null 2>&1; then
-                echo "Updating existing Lambda: $FUNCTION_NAME"
+                echo "Updating existing Lambda..."
                 aws lambda update-function-code \
                   --function-name "$FUNCTION_NAME" \
                   --s3-bucket "$S3_BUCKET" \
-                  --s3-key "$S3_KEY" >/dev/null
+                  --s3-key "$S3_KEY"
               else
-                echo "Creating new Lambda: $FUNCTION_NAME"
+                echo "Creating new Lambda..."
                 aws lambda create-function \
                   --function-name "$FUNCTION_NAME" \
-                  --runtime "$RUNTIME" \
-                  --handler "$HANDLER" \
+                  --runtime python3.11 \
+                  --handler handler.lambda_handler \
                   --role "$ROLE_ARN" \
                   --code S3Bucket="$S3_BUCKET",S3Key="$S3_KEY" \
                   --timeout 10 \
-                  --memory-size 128 \
-                  --architectures x86_64 >/dev/null
+                  --memory-size 128
               fi
 
-              echo "== Lambda Status =="
-              aws lambda get-function \
-                --function-name "$FUNCTION_NAME" \
-                --query 'Configuration.{Name:FunctionName,ARN:FunctionArn,LastModified:LastModified,Runtime:Runtime,Role:Role}' \
-                --output table
-      workspaces:
-        - name: ws
-          workspace: ws
-
----
-apiVersion: tekton.dev/v1
-kind: PipelineRun
-metadata:
-  name: deploy-aws-lambda-from-s3-run
-spec:
-  pipelineRef:
-    name: deploy-aws-lambda-from-s3
-  params:
-    - name: FUNCTION_NAME
-      value: rajusin4
-    - name: S3_BUCKET
-      value: amzn-cicd-bucket
-    - name: S3_KEY
-      value: lambda.zip
-    - name: ROLE_NAME
-      value: lambda-basic-exec
-    - name: RUNTIME
-      value: python3.11
-    - name: HANDLER
-      value: handler.lambda_handler
-    - name: AWS_DEFAULT_REGION
-      value: ca-central-1
-  workspaces:
-    - name: ws
-      emptyDir: {}
+              echo "✅ Lambda deployment complete!"
+              aws lambda get-function --function-name "$FUNCTION_NAME" --query 'Configuration.{FunctionName:FunctionName,LastModified:LastModified,Runtime:Runtime}' --output table
