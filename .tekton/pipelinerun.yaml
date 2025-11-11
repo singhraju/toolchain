@@ -1,0 +1,11 @@
+# .tekton/pipelinerun.yaml
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  name: hello-world-run
+spec:
+  pipelineRef:
+    name: hello-world-pipeline   # match your pipeline name
+  workspaces:
+    - name: ws
+      emptyDir: {}
