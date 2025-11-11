@@ -4,6 +4,5 @@ metadata:
   name: hello-binding
 spec:
   params:
-    # If you POST JSON {"message":"Hi!"} to the webhook, this will pass it through.
     - name: message
-      value: $(body.message)
+      value: $(body.message)               # POST {"message":"Hi!"} to override
