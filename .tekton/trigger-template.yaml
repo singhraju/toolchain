@@ -1,0 +1,22 @@
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerTemplate
+metadata:
+  name: hello-template
+spec:
+  params:
+    - name: message
+      default: "Hello from EventListener!"
+  resourcetemplates:
+    - apiVersion: tekton.dev/v1
+      kind: PipelineRun
+      metadata:
+        generateName: hello-run-
+      spec:
+        pipelineRef:
+          name: hello-ibmcloud-pipeline
+        params:
+          - name: MESSAGE
+            value: $(tt.params.message)
+        workspaces:
+          - name: ws
+            emptyDir: {}
