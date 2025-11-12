@@ -53,18 +53,11 @@ spec:
           - name: install-awscli-and-deploy
             image: ubuntu:22.04
             workingDir: /workspace/ws
+            # NOTE: AWS creds come from IBM Cloud "Environment properties".
+            # You do NOT need to reference them here; they’re injected at runtime.
             env:
-              # Provide these via IBM Cloud "Environment properties" (secure) or a K8s Secret named aws-creds.
-              #- name: AWS_ACCESS_KEY_ID
-              #  valueFrom:
-              #    secretKeyRef:
-              #      name: aws-creds
-              #      key: aws_access_key_id
-              #- name: AWS_SECRET_ACCESS_KEY
-              #  valueFrom:
-              #    secretKeyRef:
-              #      name: aws-creds
-              #      key: aws_secret_access_key
+              - name: AWS_REGION
+                value: $(params.AWS_DEFAULT_REGION)
               - name: AWS_DEFAULT_REGION
                 value: $(params.AWS_DEFAULT_REGION)
             script: |
@@ -89,43 +82,45 @@ spec:
               /tmp/aws/install --bin-dir /usr/local/bin --update
               aws --version
 
+              echo "== Configure AWS region =="
+              : "${REGION:?AWS region param is empty}"
+              aws configure set default.region "$REGION"
+
+              echo "== Sanity check credentials/region =="
+              aws sts get-caller-identity >/dev/null
+
               echo "== Download Lambda ZIP from S3 =="
               mkdir -p artifacts
-              aws s3 cp "s3://${SRC_BUCKET}/${SRC_KEY}" "artifacts/lambda.zip"
+              aws s3 cp "s3://${SRC_BUCKET}/${SRC_KEY}" "artifacts/lambda.zip" --region "$REGION"
               test -s artifacts/lambda.zip || { echo "Downloaded ZIP missing/empty"; exit 1; }
 
               echo "== Ensure IAM role exists =="
-              if ! aws iam get-role --role-name "$ROLE_NAME" >/dev/null 2>&1; then
+              if ! aws iam get-role --role-name "$ROLE_NAME" --region "$REGION" >/dev/null 2>&1; then
                 cat > trust-policy.json <<'EOF'
               {
                 "Version": "2012-10-17",
                 "Statement": [
-                  {
-                    "Effect": "Allow",
-                    "Principal": { "Service": "lambda.amazonaws.com" },
-                    "Action": "sts:AssumeRole"
-                  }
+                  { "Effect": "Allow", "Principal": { "Service": "lambda.amazonaws.com" }, "Action": "sts:AssumeRole" }
                 ]
               }
               EOF
-                aws iam create-role \
-                  --role-name "$ROLE_NAME" \
-                  --assume-role-policy-document file://trust-policy.json >/dev/null
-                aws iam attach-role-policy \
-                  --role-name "$ROLE_NAME" \
-                  --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole >/dev/null
+                aws iam create-role --role-name "$ROLE_NAME" \
+                  --assume-role-policy-document file://trust-policy.json --region "$REGION" >/dev/null
+                aws iam attach-role-policy --role-name "$ROLE_NAME" \
+                  --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole --region "$REGION" >/dev/null
                 echo "Waiting for IAM role propagation..."
                 sleep 15
               fi
 
-              ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
+              ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text --region "$REGION")"
               ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/${ROLE_NAME}"
 
               echo "== Create or Update Lambda from local ZIP =="
-              if aws lambda get-function --function-name "$FUNCTION_NAME" >/dev/null 2>&1; then
+              if aws lambda get-function --function-name "$FUNCTION_NAME" --region "$REGION" >/dev/null 2>&1; then
                 aws lambda update-function-code \
                   --function-name "$FUNCTION_NAME" \
-                  --zip-file "fileb://$(pwd)/artifacts/lambda.zip" >/dev/null
+                  --zip-file "fileb://$(pwd)/artifacts/lambda.zip" \
+                  --region "$REGION" >/dev/null
               else
                 aws lambda create-function \
                   --function-name "$FUNCTION_NAME" \
@@ -135,12 +130,12 @@ spec:
                   --zip-file "fileb://$(pwd)/artifacts/lambda.zip" \
                   --timeout 10 \
                   --memory-size 128 \
-                  --architectures x86_64 >/dev/null
+                  --architectures x86_64 \
+                  --region "$REGION" >/dev/null
               fi
 
               echo "== Lambda Status =="
-              aws lambda get-function \
-                --function-name "$FUNCTION_NAME" \
+              aws lambda get-function --function-name "$FUNCTION_NAME" --region "$REGION" \
                 --query 'Configuration.{Name:FunctionName,Runtime:Runtime,LastModified:LastModified,Role:Role}' \
                 --output table
       workspaces:
