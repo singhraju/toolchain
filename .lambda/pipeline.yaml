@@ -51,11 +51,10 @@ spec:
           - name: ws
         steps:
           - name: install-awscli-and-deploy
-            # ubuntu base; we install AWS CLI v2 inline
             image: ubuntu:22.04
             workingDir: /workspace/ws
             env:
-              # Prefer setting these as secure Environment Properties in IBM Cloud Delivery Pipeline
+              # Provide these via IBM Cloud "Environment properties" (secure) or a K8s Secret named aws-creds.
               - name: AWS_ACCESS_KEY_ID
                 valueFrom:
                   secretKeyRef:
@@ -80,24 +79,23 @@ spec:
               SRC_BUCKET="$(params.SOURCE_BUCKET)"
               SRC_KEY="$(params.SOURCE_KEY)"
 
-              echo "== Setup =="
+              echo "== Install prerequisites =="
               apt-get update -y >/dev/null
               apt-get install -y unzip curl >/dev/null
 
-              echo "Installing AWS CLI v2..."
+              echo "== Install AWS CLI v2 =="
               curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"
               unzip -q /tmp/awscliv2.zip -d /tmp
               /tmp/aws/install --bin-dir /usr/local/bin --update
-              echo "AWS CLI: $(aws --version)"
+              aws --version
 
-              echo "== Download ZIP from S3 =="
-              mkdir -p /workspace/ws/artifacts
-              aws s3 cp "s3://${SRC_BUCKET}/${SRC_KEY}" /workspace/ws/artifacts/lambda.zip
-              test -s /workspace/ws/artifacts/lambda.zip || { echo "Downloaded ZIP is empty/missing"; exit 1; }
+              echo "== Download Lambda ZIP from S3 =="
+              mkdir -p artifacts
+              aws s3 cp "s3://${SRC_BUCKET}/${SRC_KEY}" "artifacts/lambda.zip"
+              test -s artifacts/lambda.zip || { echo "Downloaded ZIP missing/empty"; exit 1; }
 
               echo "== Ensure IAM role exists =="
               if ! aws iam get-role --role-name "$ROLE_NAME" >/dev/null 2>&1; then
-                echo "Creating IAM role: $ROLE_NAME"
                 cat > trust-policy.json <<'EOF'
               {
                 "Version": "2012-10-17",
@@ -113,11 +111,9 @@ spec:
                 aws iam create-role \
                   --role-name "$ROLE_NAME" \
                   --assume-role-policy-document file://trust-policy.json >/dev/null
-
                 aws iam attach-role-policy \
                   --role-name "$ROLE_NAME" \
                   --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole >/dev/null
-
                 echo "Waiting for IAM role propagation..."
                 sleep 15
               fi
@@ -126,20 +122,17 @@ spec:
               ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/${ROLE_NAME}"
 
               echo "== Create or Update Lambda from local ZIP =="
-              # Note: --zip-file supports up to 50 MB compressed via API
               if aws lambda get-function --function-name "$FUNCTION_NAME" >/dev/null 2>&1; then
-                echo "Updating existing Lambda: $FUNCTION_NAME"
                 aws lambda update-function-code \
                   --function-name "$FUNCTION_NAME" \
-                  --zip-file "fileb:///workspace/ws/artifacts/lambda.zip" >/dev/null
+                  --zip-file "fileb://$(pwd)/artifacts/lambda.zip" >/dev/null
               else
-                echo "Creating new Lambda: $FUNCTION_NAME"
                 aws lambda create-function \
                   --function-name "$FUNCTION_NAME" \
                   --runtime "$RUNTIME" \
                   --handler "$HANDLER" \
                   --role "$ROLE_ARN" \
-                  --zip-file "fileb:///workspace/ws/artifacts/lambda.zip" \
+                  --zip-file "fileb://$(pwd)/artifacts/lambda.zip" \
                   --timeout 10 \
                   --memory-size 128 \
                   --architectures x86_64 >/dev/null
@@ -150,8 +143,5 @@ spec:
                 --function-name "$FUNCTION_NAME" \
                 --query 'Configuration.{Name:FunctionName,Runtime:Runtime,LastModified:LastModified,Role:Role}' \
                 --output table
-        workspaces:
-          - name: ws
-            description: scratch
       workspaces:
         - name: ws
