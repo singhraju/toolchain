@@ -4,6 +4,16 @@ metadata:
   name: lambda-binding
 spec:
   params:
+    - name: aws_region
+      value: $(body.aws_region)
+    - name: function
+      value: $(body.function)
+    - name: role
+      value: $(body.role)
+    - name: runtime
+      value: $(body.runtime)
+    - name: handler
+      value: $(body.handler)
     - name: bucket
       value: $(body.bucket)
     - name: key
