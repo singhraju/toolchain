@@ -6,6 +6,7 @@ spec:
   workspaces:
     - name: ws
   params:
+    # ---- REGION & LAMBDA DETAILS ----
     - name: AWS_DEFAULT_REGION
       default: ca-central-1
     - name: FUNCTION_NAME
@@ -20,6 +21,13 @@ spec:
       default: amzn-cicd-bucket
     - name: SOURCE_KEY
       default: lambda.zip
+    # ---- "HARDCODED" AWS CREDS (DEMO ONLY) ----
+    - name: AWS_ACCESS_KEY_ID
+      default: "AKIA5FTZEWWEST5T6JO2"        # ⚠️ demo only
+    - name: AWS_SECRET_ACCESS_KEY
+      default: "E7kjBdtoc2NFguEgbzDOG3zxGsvSmJuzxW6fOais"        # ⚠️ demo only
+    - name: AWS_SESSION_TOKEN
+      default: ""                              # optional if using STS/SSO
 
   tasks:
     - name: fetch-and-deploy
@@ -38,6 +46,12 @@ spec:
           value: $(params.SOURCE_BUCKET)
         - name: SOURCE_KEY
           value: $(params.SOURCE_KEY)
+        - name: AWS_ACCESS_KEY_ID
+          value: $(params.AWS_ACCESS_KEY_ID)
+        - name: AWS_SECRET_ACCESS_KEY
+          value: $(params.AWS_SECRET_ACCESS_KEY)
+        - name: AWS_SESSION_TOKEN
+          value: $(params.AWS_SESSION_TOKEN)
       taskSpec:
         params:
           - name: AWS_DEFAULT_REGION
@@ -47,24 +61,33 @@ spec:
           - name: HANDLER
           - name: SOURCE_BUCKET
           - name: SOURCE_KEY
+          - name: AWS_ACCESS_KEY_ID
+          - name: AWS_SECRET_ACCESS_KEY
+          - name: AWS_SESSION_TOKEN
         workspaces:
           - name: ws
         steps:
           - name: install-awscli-and-deploy
             image: ubuntu:22.04
             workingDir: /workspace/ws
-            # NOTE: AWS creds come from IBM Cloud "Environment properties".
-            # You do NOT need to reference them here; they’re injected at runtime.
             env:
               - name: AWS_REGION
                 value: $(params.AWS_DEFAULT_REGION)
               - name: AWS_DEFAULT_REGION
                 value: $(params.AWS_DEFAULT_REGION)
+              - name: AWS_ACCESS_KEY_ID
+                value: $(params.AWS_ACCESS_KEY_ID)
+              - name: AWS_SECRET_ACCESS_KEY
+                value: $(params.AWS_SECRET_ACCESS_KEY)
+              - name: AWS_SESSION_TOKEN
+                value: $(params.AWS_SESSION_TOKEN)
             script: |
               #!/usr/bin/env bash
               set -euo pipefail
 
-              REGION="$(params.AWS_DEFAULT_REGION)"
+              REGION="${AWS_REGION:-${AWS_DEFAULT_REGION:-}}"
+              : "${REGION:?AWS region is empty}"
+
               FUNCTION_NAME="$(params.FUNCTION_NAME)"
               ROLE_NAME="$(params.ROLE_NAME)"
               RUNTIME="$(params.RUNTIME)"
@@ -82,12 +105,25 @@ spec:
               /tmp/aws/install --bin-dir /usr/local/bin --update
               aws --version
 
-              echo "== Configure AWS region =="
-              : "${REGION:?AWS region param is empty}"
-              aws configure set default.region "$REGION"
+              echo "== Configure AWS CLI with inline creds =="
+              mkdir -p ~/.aws
+              {
+                echo "[default]"
+                echo "aws_access_key_id=${AWS_ACCESS_KEY_ID}"
+                echo "aws_secret_access_key=${AWS_SECRET_ACCESS_KEY}"
+                if [ -n "${AWS_SESSION_TOKEN:-}" ]; then
+                  echo "aws_session_token=${AWS_SESSION_TOKEN}"
+                fi
+              } > ~/.aws/credentials
+
+              {
+                echo "[default]"
+                echo "region=${REGION}"
+                echo "output=json"
+              } > ~/.aws/config
 
               echo "== Sanity check credentials/region =="
-              aws sts get-caller-identity >/dev/null
+              aws sts get-caller-identity --region "$REGION" >/dev/null
 
               echo "== Download Lambda ZIP from S3 =="
               mkdir -p artifacts
@@ -105,9 +141,11 @@ spec:
               }
               EOF
                 aws iam create-role --role-name "$ROLE_NAME" \
-                  --assume-role-policy-document file://trust-policy.json --region "$REGION" >/dev/null
+                  --assume-role-policy-document file://trust-policy.json \
+                  --region "$REGION" >/dev/null
                 aws iam attach-role-policy --role-name "$ROLE_NAME" \
-                  --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole --region "$REGION" >/dev/null
+                  --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole \
+                  --region "$REGION" >/dev/null
                 echo "Waiting for IAM role propagation..."
                 sleep 15
               fi
