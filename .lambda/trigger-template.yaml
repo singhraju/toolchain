@@ -1,0 +1,26 @@
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerTemplate
+metadata:
+  name: lambda-template
+spec:
+  params:
+    - name: bucket
+      default: amzn-cicd-bucket
+    - name: key
+      default: lambda.zip
+  resourcetemplates:
+    - apiVersion: tekton.dev/v1
+      kind: PipelineRun
+      metadata:
+        generateName: lambda-run-
+      spec:
+        pipelineRef:
+          name: lambda-from-s3-zip-pipeline
+        params:
+          - name: SOURCE_BUCKET
+            value: $(tt.params.bucket)
+          - name: SOURCE_KEY
+            value: $(tt.params.key)
+        workspaces:
+          - name: ws
+            emptyDir: {}
