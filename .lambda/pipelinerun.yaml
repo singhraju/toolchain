@@ -9,7 +9,7 @@ spec:
     - name: AWS_DEFAULT_REGION
       value: ca-central-1
     - name: FUNCTION_NAME
-      value: rajusin4-lambda
+      value: rajusin4
     - name: ROLE_NAME
       value: lambda-basic-exec
     - name: RUNTIME
