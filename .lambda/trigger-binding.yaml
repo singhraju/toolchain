@@ -1,0 +1,10 @@
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerBinding
+metadata:
+  name: lambda-binding
+spec:
+  params:
+    - name: bucket
+      value: $(body.bucket)
+    - name: key
+      value: $(body.key)
