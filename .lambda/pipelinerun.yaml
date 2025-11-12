@@ -9,7 +9,7 @@ spec:
     - name: AWS_DEFAULT_REGION
       value: ca-central-1
     - name: FUNCTION_NAME
-      value: rajusin4-lambda
+      value: rajusin4
     - name: ROLE_NAME
       value: lambda-basic-exec
     - name: RUNTIME
@@ -20,6 +20,13 @@ spec:
       value: amzn-cicd-bucket
     - name: SOURCE_KEY
       value: lambda.zip
+    # ---- "HARDCODED" CREDS (DEMO ONLY) ----
+    - name: AWS_ACCESS_KEY_ID
+      value: "AKIA5FTZEWWEST5T6JO2"
+    - name: AWS_SECRET_ACCESS_KEY
+      value: "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"
+    - name: AWS_SESSION_TOKEN
+      value: ""                     # if using temp creds
   workspaces:
     - name: ws
       emptyDir: {}
