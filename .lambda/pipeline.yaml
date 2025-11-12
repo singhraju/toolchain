@@ -1,0 +1,157 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: lambda-from-s3-zip-pipeline
+spec:
+  workspaces:
+    - name: ws
+  params:
+    - name: AWS_DEFAULT_REGION
+      default: ca-central-1
+    - name: FUNCTION_NAME
+      default: rajusin4
+    - name: ROLE_NAME
+      default: lambda-basic-exec
+    - name: RUNTIME
+      default: python3.11
+    - name: HANDLER
+      default: handler.lambda_handler
+    - name: SOURCE_BUCKET
+      default: amzn-cicd-bucket
+    - name: SOURCE_KEY
+      default: lambda.zip
+
+  tasks:
+    - name: fetch-and-deploy
+      params:
+        - name: AWS_DEFAULT_REGION
+          value: $(params.AWS_DEFAULT_REGION)
+        - name: FUNCTION_NAME
+          value: $(params.FUNCTION_NAME)
+        - name: ROLE_NAME
+          value: $(params.ROLE_NAME)
+        - name: RUNTIME
+          value: $(params.RUNTIME)
+        - name: HANDLER
+          value: $(params.HANDLER)
+        - name: SOURCE_BUCKET
+          value: $(params.SOURCE_BUCKET)
+        - name: SOURCE_KEY
+          value: $(params.SOURCE_KEY)
+      taskSpec:
+        params:
+          - name: AWS_DEFAULT_REGION
+          - name: FUNCTION_NAME
+          - name: ROLE_NAME
+          - name: RUNTIME
+          - name: HANDLER
+          - name: SOURCE_BUCKET
+          - name: SOURCE_KEY
+        workspaces:
+          - name: ws
+        steps:
+          - name: install-awscli-and-deploy
+            # ubuntu base; we install AWS CLI v2 inline
+            image: ubuntu:22.04
+            workingDir: /workspace/ws
+            env:
+              # Prefer setting these as secure Environment Properties in IBM Cloud Delivery Pipeline
+              - name: AWS_ACCESS_KEY_ID
+                valueFrom:
+                  secretKeyRef:
+                    name: aws-creds
+                    key: aws_access_key_id
+              - name: AWS_SECRET_ACCESS_KEY
+                valueFrom:
+                  secretKeyRef:
+                    name: aws-creds
+                    key: aws_secret_access_key
+              - name: AWS_DEFAULT_REGION
+                value: $(params.AWS_DEFAULT_REGION)
+            script: |
+              #!/usr/bin/env bash
+              set -euo pipefail
+
+              REGION="$(params.AWS_DEFAULT_REGION)"
+              FUNCTION_NAME="$(params.FUNCTION_NAME)"
+              ROLE_NAME="$(params.ROLE_NAME)"
+              RUNTIME="$(params.RUNTIME)"
+              HANDLER="$(params.HANDLER)"
+              SRC_BUCKET="$(params.SOURCE_BUCKET)"
+              SRC_KEY="$(params.SOURCE_KEY)"
+
+              echo "== Setup =="
+              apt-get update -y >/dev/null
+              apt-get install -y unzip curl >/dev/null
+
+              echo "Installing AWS CLI v2..."
+              curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"
+              unzip -q /tmp/awscliv2.zip -d /tmp
+              /tmp/aws/install --bin-dir /usr/local/bin --update
+              echo "AWS CLI: $(aws --version)"
+
+              echo "== Download ZIP from S3 =="
+              mkdir -p /workspace/ws/artifacts
+              aws s3 cp "s3://${SRC_BUCKET}/${SRC_KEY}" /workspace/ws/artifacts/lambda.zip
+              test -s /workspace/ws/artifacts/lambda.zip || { echo "Downloaded ZIP is empty/missing"; exit 1; }
+
+              echo "== Ensure IAM role exists =="
+              if ! aws iam get-role --role-name "$ROLE_NAME" >/dev/null 2>&1; then
+                echo "Creating IAM role: $ROLE_NAME"
+                cat > trust-policy.json <<'EOF'
+              {
+                "Version": "2012-10-17",
+                "Statement": [
+                  {
+                    "Effect": "Allow",
+                    "Principal": { "Service": "lambda.amazonaws.com" },
+                    "Action": "sts:AssumeRole"
+                  }
+                ]
+              }
+              EOF
+                aws iam create-role \
+                  --role-name "$ROLE_NAME" \
+                  --assume-role-policy-document file://trust-policy.json >/dev/null
+
+                aws iam attach-role-policy \
+                  --role-name "$ROLE_NAME" \
+                  --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole >/dev/null
+
+                echo "Waiting for IAM role propagation..."
+                sleep 15
+              fi
+
+              ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
+              ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/${ROLE_NAME}"
+
+              echo "== Create or Update Lambda from local ZIP =="
+              # Note: --zip-file supports up to 50 MB compressed via API
+              if aws lambda get-function --function-name "$FUNCTION_NAME" >/dev/null 2>&1; then
+                echo "Updating existing Lambda: $FUNCTION_NAME"
+                aws lambda update-function-code \
+                  --function-name "$FUNCTION_NAME" \
+                  --zip-file "fileb:///workspace/ws/artifacts/lambda.zip" >/dev/null
+              else
+                echo "Creating new Lambda: $FUNCTION_NAME"
+                aws lambda create-function \
+                  --function-name "$FUNCTION_NAME" \
+                  --runtime "$RUNTIME" \
+                  --handler "$HANDLER" \
+                  --role "$ROLE_ARN" \
+                  --zip-file "fileb:///workspace/ws/artifacts/lambda.zip" \
+                  --timeout 10 \
+                  --memory-size 128 \
+                  --architectures x86_64 >/dev/null
+              fi
+
+              echo "== Lambda Status =="
+              aws lambda get-function \
+                --function-name "$FUNCTION_NAME" \
+                --query 'Configuration.{Name:FunctionName,Runtime:Runtime,LastModified:LastModified,Role:Role}' \
+                --output table
+        workspaces:
+          - name: ws
+            description: scratch
+      workspaces:
+        - name: ws
