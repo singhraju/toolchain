@@ -61,13 +61,13 @@ spec:
                 value: $(params.AWS_DEFAULT_REGION)
               - name: AWS_DEFAULT_REGION
                 value: $(params.AWS_DEFAULT_REGION)
-              # Secure properties from IBM Cloud (no need to hardcode)
+              # Secure environment properties are injected here
               - name: AWS_ACCESS_KEY_ID
-                value: $(AWS_ACCESS_KEY_ID)  # This will be injected by IBM Cloud Secure Properties
+                value: "${AWS_ACCESS_KEY_ID}"  # Correct way to reference the env variables
               - name: AWS_SECRET_ACCESS_KEY
-                value: $(AWS_SECRET_ACCESS_KEY)  # This will be injected by IBM Cloud Secure Properties
+                value: "${AWS_SECRET_ACCESS_KEY}"  # Correct way to reference the env variables
               - name: AWS_SESSION_TOKEN
-                value: $(AWS_SESSION_TOKEN)   # Optional, safe if unset
+                value: "${AWS_SESSION_TOKEN}"  # Optional, if using session tokens
             script: |
               #!/usr/bin/env bash
               set -euo pipefail
