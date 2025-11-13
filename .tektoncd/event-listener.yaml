@@ -2,11 +2,11 @@
 apiVersion: tekton.dev/v1beta1
 kind: EventListener
 metadata:
-  name: hello-world-event-listener
+  name: event-listener
 spec:
   triggers:
-    - name: hello-world-trigger
+    - name: trigger
       bindings:
-        - ref: hello-world-trigger-binding
+        - ref: trigger-binding
       template:
-        ref: hello-world-trigger-template
+        ref: trigger-template
