@@ -59,7 +59,7 @@ spec:
                 value: $(params.AWS_DEFAULT_REGION)
               - name: AWS_REGION
                 value: $(params.AWS_DEFAULT_REGION)
-              # ⬇️ map IBM Cloud Environment properties (no params.* here)
+              # Map IBM Cloud Environment properties (NOT Tekton params)
               - name: AWS_ACCESS_KEY_ID
                 value: "$(AWS_ACCESS_KEY_ID)"
               - name: AWS_SECRET_ACCESS_KEY
@@ -85,7 +85,6 @@ spec:
                 value: $(params.AWS_DEFAULT_REGION)
               - name: AWS_REGION
                 value: $(params.AWS_DEFAULT_REGION)
-              # ⬇️ use Environment properties again here
               - name: AWS_ACCESS_KEY_ID
                 value: "$(AWS_ACCESS_KEY_ID)"
               - name: AWS_SECRET_ACCESS_KEY
@@ -111,25 +110,18 @@ spec:
               apt-get install -y unzip curl >/dev/null
 
               echo "== Install AWS CLI v2 =="
-              curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"
-              unzip -q /tmp/awscliv2.zip -d /tmp
-              /tmp/aws/install --bin-dir /usr/local/bin --update
+              curl -fsSL https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o /tmp/awscliv2.zip
+              unzip -q /tmp/awscliv2.zip -d /tmp && /tmp/aws/install --bin-dir /usr/local/bin --update
               aws --version
 
               echo "== Write AWS config from env =="
               mkdir -p ~/.aws
-              {
-                echo "[default]"
-                echo "region=${REGION}"
-                echo "output=json"
-              } > ~/.aws/config
+              printf "[default]\nregion=%s\noutput=json\n" "$REGION" > ~/.aws/config
               {
                 echo "[default]"
                 echo "aws_access_key_id=${AWS_ACCESS_KEY_ID:-}"
                 echo "aws_secret_access_key=${AWS_SECRET_ACCESS_KEY:-}"
-                if [ -n "${AWS_SESSION_TOKEN:-}" ]; then
-                  echo "aws_session_token=${AWS_SESSION_TOKEN}"
-                fi
+                [[ -n "${AWS_SESSION_TOKEN:-}" ]] && echo "aws_session_token=${AWS_SESSION_TOKEN}"
               } > ~/.aws/credentials
               chmod 600 ~/.aws/credentials
 
@@ -138,14 +130,13 @@ spec:
 
               echo "== Detect bucket region =="
               BUCKET_REGION="$(aws s3api get-bucket-location --bucket "${SRC_BUCKET}" --query 'LocationConstraint' --output text || true)"
-              if [ "${BUCKET_REGION}" = "None" ] || [ -z "${BUCKET_REGION}" ]; then BUCKET_REGION="us-east-1"; fi
+              [[ -z "$BUCKET_REGION" || "$BUCKET_REGION" == "None" ]] && BUCKET_REGION="us-east-1"
               echo "Bucket ${SRC_BUCKET} region: ${BUCKET_REGION}"
               aws configure set default.region "${BUCKET_REGION}"
 
               echo "== head-object (permission/key check) =="
               if ! aws s3api head-object --bucket "${SRC_BUCKET}" --key "${SRC_KEY}" --region "${BUCKET_REGION}"; then
-                echo "❌ head-object failed."
-                echo "   Check: key='${SRC_KEY}', bucket='${SRC_BUCKET}', perms s3:GetObject, and KMS if encrypted."
+                echo "❌ head-object failed. Check s3:GetObject permission and KMS if encrypted."
                 exit 1
               fi
 
@@ -164,12 +155,9 @@ spec:
                 ]
               }
               EOF
-                aws iam create-role --role-name "$ROLE_NAME" \
-                  --assume-role-policy-document file://trust-policy.json >/dev/null
-                aws iam attach-role-policy --role-name "$ROLE_NAME" \
-                  --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole >/dev/null
-                echo "Waiting for IAM role propagation..."
-                sleep 15
+                aws iam create-role --role-name "$ROLE_NAME" --assume-role-policy-document file://trust-policy.json >/dev/null
+                aws iam attach-role-policy --role-name "$ROLE_NAME" --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole >/dev/null
+                echo "Waiting for IAM role propagation..."; sleep 15
               fi
 
               ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
@@ -180,7 +168,7 @@ spec:
                 aws lambda update-function-code \
                   --function-name "$FUNCTION_NAME" \
                   --zip-file "fileb://$(pwd)/artifacts/lambda.zip" \
-                  --region "${BUCKET_REGION}" >/devnull
+                  --region "${BUCKET_REGION}" >/dev/null
               else
                 aws lambda create-function \
                   --function-name "$FUNCTION_NAME" \
@@ -198,5 +186,3 @@ spec:
               aws lambda get-function --function-name "$FUNCTION_NAME" --region "${BUCKET_REGION}" \
                 --query 'Configuration.{Name:FunctionName,Runtime:Runtime,LastModified:LastModified,Role:Role}' \
                 --output table
-        workspaces:
-          - name: ws
