@@ -17,15 +17,11 @@ spec:
     - name: HANDLER
       default: handler.lambda_handler
     - name: SOURCE_BUCKET
-      default: amzn-cicd-bucket
+      default: amzn-cicd-bucket  # Default value
     - name: SOURCE_KEY
-      default: lambda.zip
+      default: lambda.zip  # Default value
     - name: AWS_REGION
       default: ca-central-1
-    - name: AWS_ACCESS_KEY_ID
-      default: "<AWS_ACCESS_KEY_ID>"
-    - name: AWS_SECRET_ACCESS_KEY
-      default: "<AWS_SECRET_ACCESS_KEY>"
 
   tasks:
     - name: fetch-and-deploy
@@ -44,10 +40,6 @@ spec:
           value: $(params.SOURCE_BUCKET)
         - name: SOURCE_KEY
           value: $(params.SOURCE_KEY)
-        - name: AWS_ACCESS_KEY_ID
-          value: $(params.AWS_ACCESS_KEY_ID)
-        - name: AWS_SECRET_ACCESS_KEY
-          value: $(params.AWS_SECRET_ACCESS_KEY)
       taskSpec:
         params:
           - name: AWS_DEFAULT_REGION
@@ -57,27 +49,149 @@ spec:
           - name: HANDLER
           - name: SOURCE_BUCKET
           - name: SOURCE_KEY
-          - name: AWS_ACCESS_KEY_ID
-          - name: AWS_SECRET_ACCESS_KEY
         workspaces:
           - name: ws
         steps:
+          # Step 1: Verify credentials & region are injected (no secret printing)
           - name: verify-aws-env
             image: ubuntu:22.04
             env:
+              - name: AWS_REGION
+                value: $(params.AWS_DEFAULT_REGION)
+              - name: AWS_DEFAULT_REGION
+                value: $(params.AWS_DEFAULT_REGION)
               - name: AWS_ACCESS_KEY_ID
-                value: $(params.AWS_ACCESS_KEY_ID)
+                value: $(AWS_ACCESS_KEY_ID)  # Injected from IBM Cloud environment properties
               - name: AWS_SECRET_ACCESS_KEY
-                value: $(params.AWS_SECRET_ACCESS_KEY)
+                value: $(AWS_SECRET_ACCESS_KEY)  # Injected from IBM Cloud environment properties
               - name: AWS_SESSION_TOKEN
-                value: $(params.AWS_SESSION_TOKEN)
+                value: $(AWS_SESSION_TOKEN)  # Optional, if you're using temporary session credentials
             script: |
               #!/usr/bin/env bash
               set -euo pipefail
-              echo "AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}"
-              echo "AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}"
-              echo "AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN}"
-              if [ -z "$AWS_ACCESS_KEY_ID" ] || [ -z "$AWS_SECRET_ACCESS_KEY" ]; then
-                echo "❌ Missing AWS creds in env."
+              echo "AWS_REGION: ${AWS_REGION:-<empty>}"
+              echo "AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-<empty>}"
+              echo -n "AWS_ACCESS_KEY_ID: "; echo "${AWS_ACCESS_KEY_ID:-<empty>}"
+              echo -n "AWS_SECRET_ACCESS_KEY: "; echo "${AWS_SECRET_ACCESS_KEY:-<empty>}"
+              echo -n "AWS_SESSION_TOKEN: "; echo "${AWS_SESSION_TOKEN:-<empty>}"
+              if [ -z "${AWS_ACCESS_KEY_ID:-}" ] || [ -z "${AWS_SECRET_ACCESS_KEY:-}" ]; then
+                echo "❌ Missing AWS credentials in environment variables."
                 exit 1
               fi
+
+          # Step 2: Install AWS CLI and deploy Lambda
+          - name: install-awscli-and-deploy
+            image: ubuntu:22.04
+            workingDir: /workspace/ws
+            env:
+              - name: AWS_REGION
+                value: $(params.AWS_DEFAULT_REGION)
+              - name: AWS_DEFAULT_REGION
+                value: $(params.AWS_DEFAULT_REGION)
+              - name: AWS_ACCESS_KEY_ID
+                value: $(AWS_ACCESS_KEY_ID)  # Injected from IBM Cloud environment properties
+              - name: AWS_SECRET_ACCESS_KEY
+                value: $(AWS_SECRET_ACCESS_KEY)  # Injected from IBM Cloud environment properties
+              - name: AWS_SESSION_TOKEN
+                value: $(AWS_SESSION_TOKEN)  # Optional if using session token
+            script: |
+              #!/usr/bin/env bash
+              set -euo pipefail
+
+              REGION="${AWS_REGION:-${AWS_DEFAULT_REGION:-}}"
+              : "${REGION:?AWS region is empty}"
+
+              FUNCTION_NAME="$(params.FUNCTION_NAME)"
+              ROLE_NAME="$(params.ROLE_NAME)"
+              RUNTIME="$(params.RUNTIME)"
+              HANDLER="$(params.HANDLER)"
+              SRC_BUCKET="$(params.SOURCE_BUCKET)"
+              SRC_KEY="$(params.SOURCE_KEY)"
+
+              # Install prerequisites
+              apt-get update -y >/dev/null
+              apt-get install -y unzip curl >/dev/null
+
+              echo "== Install AWS CLI v2 =="
+              curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"
+              unzip -q /tmp/awscliv2.zip -d /tmp && /tmp/aws/install --bin-dir /usr/local/bin --update
+              aws --version
+
+              echo "== Write AWS config from env =="
+              mkdir -p ~/.aws
+              {
+                echo "[default]"
+                echo "region=${REGION}"
+                echo "output=json"
+              } > ~/.aws/config
+              {
+                echo "[default]"
+                echo "aws_access_key_id=${AWS_ACCESS_KEY_ID:-}"
+                echo "aws_secret_access_key=${AWS_SECRET_ACCESS_KEY:-}"
+                if [ -n "${AWS_SESSION_TOKEN:-}" ]; then
+                  echo "aws_session_token=${AWS_SESSION_TOKEN}"
+                fi
+              } > ~/.aws/credentials
+
+              echo "== Caller =="
+              aws sts get-caller-identity || { echo '❌ Invalid AWS creds'; exit 1; }
+
+              echo "== Detect bucket region =="
+              BUCKET_REGION="$(aws s3api get-bucket-location --bucket "${SRC_BUCKET}" --query 'LocationConstraint' --output text || true)"
+              if [ "${BUCKET_REGION}" = "None" ] || [ -z "${BUCKET_REGION}" ]; then BUCKET_REGION="us-east-1"; fi
+              echo "Bucket ${SRC_BUCKET} region: ${BUCKET_REGION}"
+              aws configure set default.region "${BUCKET_REGION}"
+
+              echo "== head-object (permission/key check) =="
+              if ! aws s3api head-object --bucket "${SRC_BUCKET}" --key "${SRC_KEY}" --region "${BUCKET_REGION}"; then
+                echo "❌ head-object failed. Check s3:GetObject permission and KMS if encrypted."
+                exit 1
+              fi
+
+              echo "== Download ZIP from S3 =="
+              mkdir -p artifacts
+              aws s3 cp "s3://${SRC_BUCKET}/${SRC_KEY}" "artifacts/lambda.zip" --region "${BUCKET_REGION}"
+              test -s artifacts/lambda.zip || { echo "❌ Downloaded ZIP missing/empty"; exit 1; }
+
+              echo "== Ensure IAM role exists =="
+              if ! aws iam get-role --role-name "$ROLE_NAME" >/dev/null 2>&1; then
+                cat > trust-policy.json <<'EOF'
+              {
+                "Version": "2012-10-17",
+                "Statement": [
+                  { "Effect": "Allow", "Principal": { "Service": "lambda.amazonaws.com" }, "Action": "sts:AssumeRole" }
+                ]
+              }
+              EOF
+                aws iam create-role --role-name "$ROLE_NAME" --assume-role-policy-document file://trust-policy.json >/dev/null
+                aws iam attach-role-policy --role-name "$ROLE_NAME" --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole >/dev/null
+                echo "Waiting for IAM role propagation..."
+                sleep 15
+              fi
+
+              ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
+              ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/${ROLE_NAME}"
+
+              echo "== Create or Update Lambda from local ZIP =="
+              if aws lambda get-function --function-name "$FUNCTION_NAME" --region "${BUCKET_REGION}" >/dev/null 2>&1; then
+                aws lambda update-function-code \
+                  --function-name "$FUNCTION_NAME" \
+                  --zip-file "fileb://$(pwd)/artifacts/lambda.zip" \
+                  --region "${BUCKET_REGION}" >/dev/null
+              else
+                aws lambda create-function \
+                  --function-name "$FUNCTION_NAME" \
+                  --runtime "$RUNTIME" \
+                  --handler "$HANDLER" \
+                  --role "$ROLE_ARN" \
+                  --zip-file "fileb://$(pwd)/artifacts/lambda.zip" \
+                  --timeout 10 \
+                  --memory-size 128 \
+                  --architectures x86_64 \
+                  --region "${BUCKET_REGION}" >/dev/null
+              fi
+
+              echo "== Lambda Status =="
+              aws lambda get-function --function-name "$FUNCTION_NAME" --region "${BUCKET_REGION}" \
+                --query 'Configuration.{Name:FunctionName,Runtime:Runtime,LastModified:LastModified,Role:Role}' \
+                --output table
