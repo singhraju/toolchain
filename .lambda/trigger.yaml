@@ -1,0 +1,9 @@
+apiVersion: tekton.dev/v1alpha1
+kind: Trigger
+metadata:
+  name: simple-trigger
+spec:
+  bindings:
+    - ref: trigger-binding
+  template:
+    ref: simple-pipeline-template
