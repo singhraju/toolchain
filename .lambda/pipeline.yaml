@@ -99,7 +99,8 @@ spec:
               }
               echo "AWS_REGION: ${AWS_REGION:-<empty>}"
               echo "AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-<empty>}"
-              echo -n "AWS_ACCESS_KEY_ID: "; mask "${AWS_ACCESS_KEY_ID:-}"
+              #echo -n "AWS_ACCESS_KEY_ID: "; mask "${AWS_ACCESS_KEY_ID:-}"
+              echo -n "AWS_ACCESS_KEY_ID: "; "${AWS_ACCESS_KEY_ID:-}"
               echo -n "AWS_SECRET_ACCESS_KEY: "; mask "${AWS_SECRET_ACCESS_KEY:-}"
               echo -n "AWS_SESSION_TOKEN: "; mask "${AWS_SESSION_TOKEN:-}"
               if [ -z "${AWS_ACCESS_KEY_ID:-}" ] || [ -z "${AWS_SECRET_ACCESS_KEY:-}" ]; then
@@ -124,12 +125,12 @@ spec:
               - name: AWS_REGION
                 value: ca-central-1
               # If using params for creds, also include them here:
-              # - name: AWS_ACCESS_KEY_ID
-              #   value: $(params.AWS_ACCESS_KEY_ID)
-              # - name: AWS_SECRET_ACCESS_KEY
-              #   value: $(params.AWS_SECRET_ACCESS_KEY)
-              # - name: AWS_SESSION_TOKEN
-              #   value: $(params.AWS_SESSION_TOKEN)
+              - name: AWS_ACCESS_KEY_ID
+                value: $(params.AWS_ACCESS_KEY_ID)
+              - name: AWS_SECRET_ACCESS_KEY
+                value: $(params.AWS_SECRET_ACCESS_KEY)
+              - name: AWS_SESSION_TOKEN
+                value: $(params.AWS_SESSION_TOKEN)
             script: |
               #!/usr/bin/env bash
               set -euo pipefail
