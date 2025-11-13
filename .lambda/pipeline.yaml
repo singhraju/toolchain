@@ -3,8 +3,6 @@ kind: Pipeline
 metadata:
   name: lambda-from-s3-zip-pipeline
 spec:
-  workspaces:
-    - name: ws
   params:
     - name: AWS_DEFAULT_REGION
       default: ca-central-1
@@ -49,8 +47,6 @@ spec:
           - name: HANDLER
           - name: SOURCE_BUCKET
           - name: SOURCE_KEY
-        workspaces:
-          - name: ws
         steps:
           - name: verify-aws-env
             image: ubuntu:22.04
