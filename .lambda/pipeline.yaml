@@ -20,10 +20,10 @@ spec:
       default: amzn-cicd-bucket
     - name: SOURCE_KEY
       default: lambda.zip
-    - name: AWS_ACCESS_KEY_ID
-      default: "AKIA5FTZEWWEST5T6JO2"
-    - name: AWS_SECRET_ACCESS_KEY
-      default: "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"
+    #- name: AWS_ACCESS_KEY_ID
+    #  default: "AKIA5FTZEWWEST5T6JO2"
+    #- name: AWS_SECRET_ACCESS_KEY
+    #  default: "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"
     - name: AWS_REGION
       default: ca-central-1
     # Optional: uncomment if you insist on hardcoding via params (demo only)
@@ -74,10 +74,10 @@ spec:
               - name: AWS_DEFAULT_REGION
                 value: $(params.AWS_DEFAULT_REGION)
               # If you used params for creds, also map them here:
-              - name: AWS_ACCESS_KEY_ID
-                value: "AKIA5FTZEWWEST5T6JO2"
-              - name: AWS_SECRET_ACCESS_KEY
-                value: "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"
+              #- name: AWS_ACCESS_KEY_ID
+              #  value: "AKIA5FTZEWWEST5T6JO2"
+              #- name: AWS_SECRET_ACCESS_KEY
+              #  value: "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"
               - name: AWS_REGION
                 value: ca-central-1
               #- name: AWS_SESSION_TOKEN
@@ -110,10 +110,10 @@ spec:
                 value: $(params.AWS_DEFAULT_REGION)
               - name: AWS_DEFAULT_REGION
                 value: $(params.AWS_DEFAULT_REGION)
-              - name: AWS_ACCESS_KEY_ID
-                value: "AKIA5FTZEWWEST5T6JO2"
-              - name: AWS_SECRET_ACCESS_KEY
-                value: "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"
+              #- name: AWS_ACCESS_KEY_ID
+              #  value: "AKIA5FTZEWWEST5T6JO2"
+              #- name: AWS_SECRET_ACCESS_KEY
+              #  value: "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"
               - name: AWS_REGION
                 value: ca-central-1
               # If using params for creds, also include them here:
