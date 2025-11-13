@@ -1,10 +1,16 @@
 apiVersion: tekton.dev/v1
-kind: PipelineRun
+kind: Pipeline
 metadata:
-  name: simple-pipelinerun
+  name: simple-pipeline
 spec:
-  pipelineRef:
-    name: simple-pipeline
   params:
     - name: MESSAGE
-      value: "Hello, Tekton!"
+      type: string
+      description: The message to echo
+  tasks:
+    - name: echo-task
+      taskRef:
+        name: echo-message-task
+      params:
+        - name: MESSAGE
+          value: "$(params.MESSAGE)"
