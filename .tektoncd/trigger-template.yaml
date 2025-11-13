@@ -2,7 +2,7 @@
 apiVersion: tekton.dev/v1beta1
 kind: TriggerTemplate
 metadata:
-  name: hello-world-trigger-template
+  name: trigger-template
 spec:
   params:
     - name: message
@@ -12,10 +12,10 @@ spec:
     - apiVersion: tekton.dev/v1beta1
       kind: PipelineRun
       metadata:
-        generateName: hello-world-pipelinerun
+        generateName: pipelinerun
       spec:
         pipelineRef:
-          name: hello-world-pipeline
+          name: pipeline
         params:
           - name: message
             value: "$(params.message)"
