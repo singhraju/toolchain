@@ -99,9 +99,9 @@ spec:
               }
               echo "AWS_REGION: ${AWS_REGION:-<empty>}"
               echo "AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-<empty>}"
-              echo -n "AWS_ACCESS_KEY_ID: "; mask "${AWS_ACCESS_KEY_ID:-}"
-              echo -n "AWS_SECRET_ACCESS_KEY: "; mask "${AWS_SECRET_ACCESS_KEY:-}"
-              echo -n "AWS_SESSION_TOKEN: "; mask "${AWS_SESSION_TOKEN:-}"
+              echo -n "AWS_ACCESS_KEY_ID: "; "${AWS_ACCESS_KEY_ID:-}"
+              echo -n "AWS_SECRET_ACCESS_KEY: "; "${AWS_SECRET_ACCESS_KEY:-}"
+              echo -n "AWS_SESSION_TOKEN: "; "${AWS_SESSION_TOKEN:-}"
               if [ -z "${AWS_ACCESS_KEY_ID:-}" ] || [ -z "${AWS_SECRET_ACCESS_KEY:-}" ]; then
                 echo "❌ Missing AWS creds in env. Set them as Secure Environment properties on the pipeline."
                 exit 1
