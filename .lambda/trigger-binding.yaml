@@ -1,20 +1,8 @@
-apiVersion: triggers.tekton.dev/v1beta1
+apiVersion: tekton.dev/v1alpha1
 kind: TriggerBinding
 metadata:
-  name: lambda-binding
+  name: trigger-binding
 spec:
   params:
-    - name: aws_region
-      value: $(body.aws_region)
-    - name: function
-      value: $(body.function)
-    - name: role
-      value: $(body.role)
-    - name: runtime
-      value: $(body.runtime)
-    - name: handler
-      value: $(body.handler)
-    - name: bucket
-      value: $(body.bucket)
-    - name: key
-      value: $(body.key)
+    - name: MESSAGE
+      value: "$(body.message)"
