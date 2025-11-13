@@ -2,7 +2,7 @@ version: "1"
 
 # ========================================================================
 # IBM Cloud One Pipeline - CD
-# Trigger pipeline using the dev-mode-cd-* files from GitHub repository
+# Trigger pipeline using the dev-mode-cd-* files located in .tektoncd/ folder
 # ========================================================================
 
 # Setup Task: Prepares environment and loads configuration
@@ -12,19 +12,19 @@ setup:
     #!/usr/bin/env bash
 
     echo "========== START SETUP =========="
-    # Clone the GitHub repository containing dev-mode-cd files
-    git clone https://github.ibm.com/one-pipeline/compliance-pipelines.git $WORKSPACE/compliance-pipelines
+    # Navigate to the .tektoncd directory where dev-mode-cd files are located
+    cd $WORKSPACE/.tektoncd  # Assuming the dev-mode-cd files are inside .tektoncd folder
 
-    # Load pipeline-specific environment variables
+    # Optionally, load pipeline-specific environment variables
     python3 $WORKSPACE/one-pipeline-config-repo/helpers/process_yaml.py ./ci/.config.yaml
 
-    # Load application-specific variables
+    # Load application-specific variables from .one-pipeline-config.yaml
     repo_folder=$(load_repo app-repo path)
     python3 $WORKSPACE/one-pipeline-config-repo/helpers/process_yaml.py $WORKSPACE/$repo_folder/.one-pipeline-config.yaml
 
     echo "========== END SETUP =========="
 
-# EventListener to Trigger the Pipeline using dev-mode-cd-binding.yaml and dev-mode-cd-template.yaml from GitHub
+# EventListener to Trigger the Pipeline using dev-mode-cd-binding.yaml and dev-mode-cd-template.yaml from the repo
 dev-mode-cd-listener:
   image: us.icr.io/gbs-crafty-bears-team-docker/one-pipeline@sha256:0f59803c701610cacb91f46d92321ee279d0694ae783f772fd49ed51eeeb1429
   script: |
@@ -45,9 +45,9 @@ execute-helloworld:
     echo "========== START EXECUTION =========="
     
     # Check if helloworld.sh exists in the cloned repo directory
-    if [ -f "$WORKSPACE/compliance-pipelines/definitions/dev-mode-cd/helloworld.sh" ]; then
+    if [ -f "$WORKSPACE/.tektoncd/dev-mode-cd/helloworld.sh" ]; then
       echo "Executing helloworld.sh..."
-      bash $WORKSPACE/compliance-pipelines/definitions/dev-mode-cd/helloworld.sh
+      bash $WORKSPACE/.tektoncd/dev-mode-cd/helloworld.sh
     else
       echo "helloworld.sh not found in workspace!"
       exit 1
