@@ -78,8 +78,8 @@ spec:
                 value: "$(AWS_ACCESS_KEY_ID)"
               - name: AWS_SECRET_ACCESS_KEY
                 value: "$(AWS_SECRET_ACCESS_KEY)"
-              - name: AWS_SESSION_TOKEN
-                value: "$(AWS_SESSION_TOKEN)"   # safe if unset; we’ll handle it in script
+              #- name: AWS_SESSION_TOKEN
+              #  value: "$(AWS_SESSION_TOKEN)"   # safe if unset; we’ll handle it in script
               # If you used params for creds, also map them here:
               - name: AWS_ACCESS_KEY_ID
                 value: "AKIA5FTZEWWEST5T6JO2"
@@ -101,7 +101,7 @@ spec:
               echo "AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-<empty>}"
               echo -n "AWS_ACCESS_KEY_ID: "; mask "${AWS_ACCESS_KEY_ID:-}"
               echo -n "AWS_SECRET_ACCESS_KEY: "; mask "${AWS_SECRET_ACCESS_KEY:-}"
-              echo -n "AWS_SESSION_TOKEN: "; mask "${AWS_SESSION_TOKEN:-}"
+              #echo -n "AWS_SESSION_TOKEN: "; mask "${AWS_SESSION_TOKEN:-}"
               if [ -z "${AWS_ACCESS_KEY_ID:-}" ] || [ -z "${AWS_SECRET_ACCESS_KEY:-}" ]; then
                 echo "❌ Missing AWS creds in env. Set them as Secure Environment properties on the pipeline."
                 exit 1
