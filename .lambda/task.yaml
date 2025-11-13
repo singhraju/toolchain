@@ -1,14 +1,13 @@
 apiVersion: tekton.dev/v1
 kind: Task
 metadata:
-  name: simple-task
+  name: echo-message-task
 spec:
   params:
     - name: MESSAGE
       type: string
-      description: The message to echo
   steps:
-    - name: echo-message
+    - name: echo
       image: ubuntu:22.04
       script: |
         #!/bin/bash
