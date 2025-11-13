@@ -1,1 +1,10 @@
-.
+# pipeline.yaml for hello world
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: hello-world-pipeline
+spec:
+  tasks:
+    - name: hello-world-task
+      taskRef:
+        name: hello-world-task
