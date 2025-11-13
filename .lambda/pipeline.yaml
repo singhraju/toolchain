@@ -128,8 +128,8 @@ spec:
                 value: $(params.AWS_ACCESS_KEY_ID)
               - name: AWS_SECRET_ACCESS_KEY
                 value: $(params.AWS_SECRET_ACCESS_KEY)
-              - name: AWS_SESSION_TOKEN
-                value: $(params.AWS_SESSION_TOKEN)
+              #- name: AWS_SESSION_TOKEN
+              #  value: $(params.AWS_SESSION_TOKEN)
             script: |
               #!/usr/bin/env bash
               set -euo pipefail
