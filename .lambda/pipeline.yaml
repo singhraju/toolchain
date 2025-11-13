@@ -20,19 +20,8 @@ spec:
       default: amzn-cicd-bucket
     - name: SOURCE_KEY
       default: lambda.zip
-    #- name: AWS_ACCESS_KEY_ID
-    #  default: "AKIA5FTZEWWEST5T6JO2"
-    #- name: AWS_SECRET_ACCESS_KEY
-    #  default: "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"
     - name: AWS_REGION
       default: ca-central-1
-    # Optional: uncomment if you insist on hardcoding via params (demo only)
-    # - name: AWS_ACCESS_KEY_ID
-    #   default: "REPLACE_ME"
-    # - name: AWS_SECRET_ACCESS_KEY
-    #   default: "REPLACE_ME"
-    # - name: AWS_SESSION_TOKEN
-    #   default: ""
 
   tasks:
     - name: fetch-and-deploy
@@ -51,7 +40,6 @@ spec:
           value: $(params.SOURCE_BUCKET)
         - name: SOURCE_KEY
           value: $(params.SOURCE_KEY)
-        # If using hardcoded params above, pass them here too.
       taskSpec:
         params:
           - name: AWS_DEFAULT_REGION
@@ -73,30 +61,21 @@ spec:
                 value: $(params.AWS_DEFAULT_REGION)
               - name: AWS_DEFAULT_REGION
                 value: $(params.AWS_DEFAULT_REGION)
-              # 👇 map pipeline Environment properties into the container env
+              # Secure properties from IBM Cloud (no need to hardcode)
               - name: AWS_ACCESS_KEY_ID
-                value: "$(AWS_ACCESS_KEY_ID)"
+                value: $(AWS_ACCESS_KEY_ID)  # This will be injected by IBM Cloud Secure Properties
               - name: AWS_SECRET_ACCESS_KEY
-                value: "$(AWS_SECRET_ACCESS_KEY)"
+                value: $(AWS_SECRET_ACCESS_KEY)  # This will be injected by IBM Cloud Secure Properties
               - name: AWS_SESSION_TOKEN
-                value: "$(AWS_SESSION_TOKEN)"   # safe if unset; we’ll handle it in script
-              # If you used params for creds, also map them here:
-              #- name: AWS_ACCESS_KEY_ID
-              #  value: "AKIA5FTZEWWEST5T6JO2"
-              #- name: AWS_SECRET_ACCESS_KEY
-              #  value: "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"
-              - name: AWS_REGION
-                value: ca-central-1
-              #- name: AWS_SESSION_TOKEN
-              #  value: $(params.AWS_SESSION_TOKEN)
+                value: $(AWS_SESSION_TOKEN)   # Optional, safe if unset
             script: |
               #!/usr/bin/env bash
               set -euo pipefail
               echo "AWS_REGION: ${AWS_REGION:-<empty>}"
               echo "AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-<empty>}"
-              echo -n "AWS_ACCESS_KEY_ID: "; "${AWS_ACCESS_KEY_ID:-}"
-              echo -n "AWS_SECRET_ACCESS_KEY: "; "${AWS_SECRET_ACCESS_KEY:-}"
-              echo -n "AWS_SESSION_TOKEN: "; "${AWS_SESSION_TOKEN:-}"
+              echo -n "AWS_ACCESS_KEY_ID: "; echo "${AWS_ACCESS_KEY_ID:-<empty>}"
+              echo -n "AWS_SECRET_ACCESS_KEY: "; echo "${AWS_SECRET_ACCESS_KEY:-<empty>}"
+              echo -n "AWS_SESSION_TOKEN: "; echo "${AWS_SESSION_TOKEN:-<empty>}"
               if [ -z "${AWS_ACCESS_KEY_ID:-}" ] || [ -z "${AWS_SECRET_ACCESS_KEY:-}" ]; then
                 echo "❌ Missing AWS creds in env. Set them as Secure Environment properties on the pipeline."
                 exit 1
