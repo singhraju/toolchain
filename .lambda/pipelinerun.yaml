@@ -1,0 +1,33 @@
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  name: lambda-from-s3-zip-run
+spec:
+  pipelineRef:
+    name: lambda-from-s3-zip-pipeline
+  params:
+    - name: AWS_DEFAULT_REGION
+      value: ca-central-1
+    - name: AWS_REGION
+      value: ca-central-1
+    - name: FUNCTION_NAME
+      value: rajusin4-lambda
+    - name: ROLE_NAME
+      value: lambda-basic-exec
+    - name: RUNTIME
+      value: python3.11
+    - name: HANDLER
+      value: handler.lambda_handler
+    - name: SOURCE_BUCKET
+      value: amzn-cicd-bucket
+    - name: SOURCE_KEY
+      value: lambda.zip
+    - name: AWS_ACCESS_KEY_ID
+      value: AKIA5FTZEWWEST5T6JO2  # Ensure the key is injected from environment properties
+    - name: AWS_SECRET_ACCESS_KEY
+      value: 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  # Ensure the key is injected from environment properties
+    #- name: AWS_SESSION_TOKEN
+    #  value: $(AWS_SESSION_TOKEN)  # If using session tokens, ensure it's passed here
+  workspaces:
+    - name: ws
+      emptyDir: {}
