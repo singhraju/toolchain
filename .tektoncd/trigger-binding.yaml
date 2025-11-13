@@ -2,7 +2,7 @@
 apiVersion: tekton.dev/v1beta1
 kind: TriggerBinding
 metadata:
-  name: hello-world-trigger-binding
+  name: trigger-binding
 spec:
   params:
     - name: message
