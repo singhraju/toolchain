@@ -1,0 +1,65 @@
+version: "1"
+
+# ========================================================================
+# IBM Cloud One Pipeline - CD
+# Trigger pipeline using the dev-mode-cd-* files
+# ========================================================================
+
+# Setup Task: Prepares environment and loads configuration
+setup:
+  image: us.icr.io/gbs-crafty-bears-team-docker/one-pipeline@sha256:0f59803c701610cacb91f46d92321ee279d0694ae783f772fd49ed51eeeb1429
+  script: |
+    #!/usr/bin/env bash
+
+    echo "========== START SETUP =========="
+    # Ensure dev-mode-cd files are available in the pipeline directory
+    cd $WORKSPACE/.tektoncd  # Adjust the path to where dev-mode-cd files are located
+
+    # Optionally, load pipeline-specific environment variables
+    python3 $WORKSPACE/one-pipeline-config-repo/helpers/process_yaml.py ./ci/.config.yaml
+
+    # Load application-specific variables from .one-pipeline-config.yaml
+    repo_folder=$(load_repo app-repo path)
+    python3 $WORKSPACE/one-pipeline-config-repo/helpers/process_yaml.py $WORKSPACE/$repo_folder/.one-pipeline-config.yaml
+
+    echo "========== END SETUP =========="
+
+# EventListener to Trigger the Pipeline using dev-mode-cd-binding.yaml and dev-mode-cd-template.yaml
+dev-mode-cd-listener:
+  image: us.icr.io/gbs-crafty-bears-team-docker/one-pipeline@sha256:0f59803c701610cacb91f46d92321ee279d0694ae783f772fd49ed51eeeb1429
+  script: |
+    #!/usr/bin/env bash
+
+    echo "========== START EVENT LISTENER =========="
+    # Trigger the pipeline using the dev-mode-cd-binding.yaml and dev-mode-cd-template.yaml
+    echo "Listening for event..."
+    curl -X POST -d '{"message":"Hello from EventListener!","commit-id":"abc123","repository":"https://github.com/example/repo"}' http://<event-listener-url>
+    echo "Event received and pipeline triggered."
+    echo "========== END EVENT LISTENER =========="
+
+# Task to Execute helloworld.sh Script
+execute-helloworld:
+  image: busybox:1.35.0-uclibc
+  script: |
+    #!/usr/bin/env bash
+    echo "========== START EXECUTION =========="
+    
+    # Check if helloworld.sh exists in the cloned repo directory
+    if [ -f "$WORKSPACE/.tektoncd/dev-mode-cd/helloworld.sh" ]; then
+      echo "Executing helloworld.sh..."
+      bash $WORKSPACE/.tektoncd/dev-mode-cd/helloworld.sh
+    else
+      echo "helloworld.sh not found in workspace!"
+      exit 1
+    fi
+
+    echo "========== END EXECUTION =========="
+
+# Finish Task: Mark pipeline as completed
+finish:
+  image: us.icr.io/gbs-crafty-bears-team-docker/one-pipeline@sha256:0f59803c701610cacb91f46d92321ee279d0694ae783f772fd49ed51eeeb1429
+  script: |
+    #!/usr/bin/env bash
+    echo "========== FINISH =========="
+    source /opt/commons/custom-finish/finish.sh
+    echo "Pipeline execution completed successfully."
