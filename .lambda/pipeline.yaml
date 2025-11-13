@@ -1,0 +1,108 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: lambda-from-s3-zip-pipeline
+spec:
+  workspaces:
+    - name: ws
+  params:
+    - name: AWS_DEFAULT_REGION
+      default: ca-central-1
+    - name: FUNCTION_NAME
+      default: rajusin4
+    - name: ROLE_NAME
+      default: lambda-basic-exec
+    - name: RUNTIME
+      default: python3.11
+    - name: HANDLER
+      default: handler.lambda_handler
+    - name: SOURCE_BUCKET
+      default: amzn-cicd-bucket  # Default value
+    - name: SOURCE_KEY
+      default: lambda.zip  # Default value
+    - name: AWS_REGION
+      default: ca-central-1
+
+  tasks:
+    - name: fetch-and-deploy
+      params:
+        - name: AWS_DEFAULT_REGION
+          value: $(params.AWS_DEFAULT_REGION)
+        - name: FUNCTION_NAME
+          value: $(params.FUNCTION_NAME)
+        - name: ROLE_NAME
+          value: $(params.ROLE_NAME)
+        - name: RUNTIME
+          value: $(params.RUNTIME)
+        - name: HANDLER
+          value: $(params.HANDLER)
+        - name: SOURCE_BUCKET
+          value: $(params.SOURCE_BUCKET)
+        - name: SOURCE_KEY
+          value: $(params.SOURCE_KEY)
+      taskSpec:
+        params:
+          - name: AWS_DEFAULT_REGION
+          - name: FUNCTION_NAME
+          - name: ROLE_NAME
+          - name: RUNTIME
+          - name: HANDLER
+          - name: SOURCE_BUCKET
+          - name: SOURCE_KEY
+        workspaces:
+          - name: ws
+        steps:
+          - name: verify-aws-env
+            image: ubuntu:22.04
+            env:
+              - name: AWS_REGION
+                value: $(params.AWS_DEFAULT_REGION)
+              - name: AWS_DEFAULT_REGION
+                value: $(params.AWS_DEFAULT_REGION)
+              - name: AWS_ACCESS_KEY_ID
+                value: $(AWS_ACCESS_KEY_ID)  # Use pipeline environment variables
+              - name: AWS_SECRET_ACCESS_KEY
+                value: $(AWS_SECRET_ACCESS_KEY)  # Use pipeline environment variables
+              - name: AWS_SESSION_TOKEN
+                value: $(AWS_SESSION_TOKEN)
+            script: |
+              #!/usr/bin/env bash
+              set -euo pipefail
+              echo "AWS_REGION: ${AWS_REGION:-<empty>}"
+              echo "AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-<empty>}"
+              echo -n "AWS_ACCESS_KEY_ID: "; echo "${AWS_ACCESS_KEY_ID:-<empty>}"
+              echo -n "AWS_SECRET_ACCESS_KEY: "; echo "${AWS_SECRET_ACCESS_KEY:-<empty>}"
+              if [ -z "${AWS_ACCESS_KEY_ID:-}" ] || [ -z "${AWS_SECRET_ACCESS_KEY:-}" ]; then
+                echo "❌ Missing AWS creds in env."
+                exit 1
+              fi
+
+          - name: install-awscli-and-deploy
+            image: ubuntu:22.04
+            workingDir: /workspace/ws
+            env:
+              - name: AWS_REGION
+                value: $(params.AWS_DEFAULT_REGION)
+              - name: AWS_DEFAULT_REGION
+                value: $(params.AWS_DEFAULT_REGION)
+              - name: AWS_ACCESS_KEY_ID
+                value: $(AWS_ACCESS_KEY_ID)  # Use pipeline environment variables
+              - name: AWS_SECRET_ACCESS_KEY
+                value: $(AWS_SECRET_ACCESS_KEY)  # Use pipeline environment variables
+              - name: AWS_SESSION_TOKEN
+                value: $(AWS_SESSION_TOKEN)
+            script: |
+              #!/usr/bin/env bash
+              set -euo pipefail
+
+              REGION="${AWS_REGION:-${AWS_DEFAULT_REGION:-}}"
+              : "${REGION:?AWS region is empty}"
+
+              FUNCTION_NAME="$(params.FUNCTION_NAME)"
+              ROLE_NAME="$(params.ROLE_NAME)"
+              RUNTIME="$(params.RUNTIME)"
+              HANDLER="$(params.HANDLER)"
+              SRC_BUCKET="$(params.SOURCE_BUCKET)"
+              SRC_KEY="$(params.SOURCE_KEY)"
+
+              # Proceed with your steps to install CLI and deploy Lambda...
