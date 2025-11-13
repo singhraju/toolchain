@@ -9,7 +9,7 @@ spec:
     - name: AWS_DEFAULT_REGION
       default: ca-central-1
     - name: FUNCTION_NAME
-      default: rajusin4
+      default: "rajusin4"
     - name: ROLE_NAME
       default: lambda-basic-exec
     - name: RUNTIME
@@ -17,7 +17,7 @@ spec:
     - name: HANDLER
       default: handler.lambda_handler
     - name: SOURCE_BUCKET
-      default: amzn-cicd-bucket
+      default: "amzn-cicd-bucket"
     - name: SOURCE_KEY
       default: lambda.zip
     - name: AWS_ACCESS_KEY_ID
