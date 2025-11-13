@@ -4,7 +4,7 @@ metadata:
   name: lambda-from-s3-zip-pipeline
 spec:
   workspaces:
-    - name: ws
+    - name: ws  # This defines the workspace that is shared across tasks
   params:
     - name: AWS_DEFAULT_REGION
       default: ca-central-1
@@ -17,9 +17,9 @@ spec:
     - name: HANDLER
       default: handler.lambda_handler
     - name: SOURCE_BUCKET
-      default: amzn-cicd-bucket  # Default value
+      default: amzn-cicd-bucket  # Default value for S3 bucket
     - name: SOURCE_KEY
-      default: lambda.zip  # Default value
+      default: lambda.zip  # Default value for S3 key
     - name: AWS_REGION
       default: ca-central-1
 
@@ -50,9 +50,9 @@ spec:
           - name: SOURCE_BUCKET
           - name: SOURCE_KEY
         workspaces:
-          - name: ws
+          - name: ws  # This binds the workspace to the task
         steps:
-          # Step 1: Verify credentials & region are injected (no secret printing)
+          # Step 1: Verify credentials & region are injected
           - name: verify-aws-env
             image: ubuntu:22.04
             env:
@@ -82,7 +82,7 @@ spec:
           # Step 2: Install AWS CLI and deploy Lambda
           - name: install-awscli-and-deploy
             image: ubuntu:22.04
-            workingDir: /workspace/ws
+            workingDir: /workspace/ws  # Define working directory for this task
             env:
               - name: AWS_REGION
                 value: $(params.AWS_DEFAULT_REGION)
@@ -195,3 +195,5 @@ spec:
               aws lambda get-function --function-name "$FUNCTION_NAME" --region "${BUCKET_REGION}" \
                 --query 'Configuration.{Name:FunctionName,Runtime:Runtime,LastModified:LastModified,Role:Role}' \
                 --output table
+      workspaces:
+        - name: ws
