@@ -23,10 +23,10 @@ spec:
     - name: SOURCE_KEY
       value: lambda.zip
     # ---- "HARDCODED" CREDS (DEMO ONLY) ----
-    - name: AWS_ACCESS_KEY_ID
-      value: "AKIA5FTZEWWEST5T6JO2"
-    - name: AWS_SECRET_ACCESS_KEY
-      value: "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"
+    #- name: AWS_ACCESS_KEY_ID
+    #  value: "AKIA5FTZEWWEST5T6JO2"
+    #- name: AWS_SECRET_ACCESS_KEY
+    #  value: "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"
     - name: AWS_SESSION_TOKEN
       value: ""                     # if using temp creds
   workspaces:
