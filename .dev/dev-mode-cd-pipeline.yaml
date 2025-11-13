@@ -1,0 +1,182 @@
+---
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: dev-mode-cd-pipeline
+spec:
+  params:
+    - name: pipeline-debug
+      description: toggles debug mode for the pipeline
+    - name: compliance-baseimage
+      description: base image to run most of the built-in pipeline code
+    - name: dind-image
+      description: Base image to run sidecars
+
+  workspaces:
+    - name: artifacts
+
+  tasks:
+    - name: prod-start
+      taskRef:
+        name: cd-start
+      workspaces:
+        - name: artifacts
+          workspace: artifacts
+      params:
+        - name: compliance-baseimage
+          value: $(params.compliance-baseimage)
+        - name: pipeline-debug
+          value: $(params.pipeline-debug)
+        - name: next-stages
+          value:
+            - finish
+            - setup
+
+    - name: prod-setup
+      taskRef:
+        name: run-stage
+      runAfter:
+        - prod-start
+      workspaces:
+        - name: app
+          workspace: artifacts
+      params:
+        - name: stage
+          value: setup
+        - name: image
+          value: $(tasks.prod-start.results.image[1])
+        - name: script
+          value: $(tasks.prod-start.results.script[1])
+        - name: configmap
+          value: $(tasks.prod-start.results.configmap[1])
+        - name: secret
+          value: $(tasks.prod-start.results.secret[1])
+        - name: abort-on-failure
+          value: $(tasks.prod-start.results.abort-on-failure[1])
+        - name: dind
+          value: $(tasks.prod-start.results.dind[1])
+        - name: image-pull-policy
+          value: $(tasks.prod-start.results.image-pull-policy[1])
+        - name: compliance-baseimage
+          value: $(params.compliance-baseimage)
+        - name: pipeline-debug
+          value: $(params.pipeline-debug)
+        - name: next-stage
+          value: deploy
+        - name: dind-image
+          value: $(params.dind-image)
+
+    - name: prod-deployment
+      taskRef:
+        name: run-stage
+      runAfter:
+        - prod-setup
+      workspaces:
+        - name: app
+          workspace: artifacts
+      params:
+        - name: stage
+          value: deploy
+        - name: image
+          value: $(tasks.prod-setup.results.image)
+        - name: script
+          value: $(tasks.prod-setup.results.script)
+        - name: configmap
+          value: $(tasks.prod-setup.results.configmap)
+        - name: secret
+          value: $(tasks.prod-setup.results.secret)
+        - name: abort-on-failure
+          value: $(tasks.prod-setup.results.abort-on-failure)
+        - name: dind
+          value: $(tasks.prod-setup.results.dind)
+        - name: image-pull-policy
+          value: $(tasks.prod-setup.results.image-pull-policy)
+        - name: compliance-baseimage
+          value: $(params.compliance-baseimage)
+        - name: pipeline-debug
+          value: $(params.pipeline-debug)
+        - name: next-stage
+          value: acceptance-test
+        - name: dind-image
+          value: $(params.dind-image)
+
+    - name: prod-acceptance-tests
+      when:
+        - input: "$(tasks.prod-deployment.results.stage-skip)"
+          operator: notin
+          values: ["true"]
+      runAfter:
+        - prod-deployment
+      taskRef:
+        name: run-stage
+      workspaces:
+        - name: app
+          workspace: artifacts
+      params:
+        - name: stage
+          value: acceptance-test
+        - name: image
+          value: $(tasks.prod-deployment.results.image)
+        - name: script
+          value: $(tasks.prod-deployment.results.script)
+        - name: configmap
+          value: $(tasks.prod-deployment.results.configmap)
+        - name: secret
+          value: $(tasks.prod-deployment.results.secret)
+        - name: abort-on-failure
+          value: $(tasks.prod-deployment.results.abort-on-failure)
+        - name: dind
+          value: $(tasks.prod-deployment.results.dind)
+        - name: image-pull-policy
+          value: $(tasks.prod-deployment.results.image-pull-policy)
+        - name: compliance-baseimage
+          value: $(params.compliance-baseimage)
+        - name: pipeline-debug
+          value: $(params.pipeline-debug)
+        - name: dind-image
+          value: $(params.dind-image)
+
+  finally:
+    - name: prod-finish
+      when:
+        - input: "$(tasks.prod-start.results.stage-skip[0])"
+          operator: notin
+          values: ["true"]
+      taskRef:
+        name: dev-mode-finish
+      workspaces:
+        - name: app
+          workspace: artifacts
+      params:
+        - name: stage
+          value: finish
+        - name: image
+          value: $(tasks.prod-start.results.image[0])
+        - name: script
+          value: $(tasks.prod-start.results.script[0])
+        - name: configmap
+          value: $(tasks.prod-start.results.configmap[0])
+        - name: secret
+          value: $(tasks.prod-start.results.secret[0])
+        - name: abort-on-failure
+          value: $(tasks.prod-start.results.abort-on-failure[0])
+        - name: dind
+          value: $(tasks.prod-start.results.dind[0])
+        - name: image-pull-policy
+          value: $(tasks.prod-start.results.image-pull-policy[0])
+        - name: compliance-baseimage
+          value: $(params.compliance-baseimage)
+        - name: pipeline-debug
+          value: $(params.pipeline-debug)
+        - name: dind-image
+          value: $(params.dind-image)
+        - name: pipeline-status
+          value: "$(tasks.status)"
+        - name: deployment-status
+          value: $(tasks.prod-deployment.status)
+        - name: acceptance-test-status
+          value: $(tasks.prod-acceptance-tests.status)
+        - name: prod-start-status
+          value: $(tasks.prod-start.status)
+        - name: prod-setup-status
+          value: $(tasks.prod-setup.status)
