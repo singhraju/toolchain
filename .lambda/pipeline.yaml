@@ -1,71 +1,48 @@
 apiVersion: tekton.dev/v1
 kind: Pipeline
 metadata:
-  name: lambda-from-s3-zip-pipeline
+  name: print-aws-variables-pipeline
 spec:
   params:
     - name: AWS_DEFAULT_REGION
       default: ca-central-1
-    - name: FUNCTION_NAME
-      default: rajusin4
-    - name: ROLE_NAME
-      default: lambda-basic-exec
-    - name: RUNTIME
-      default: python3.11
-    - name: HANDLER
-      default: handler.lambda_handler
-    - name: SOURCE_BUCKET
-      default: amzn-cicd-bucket
-    - name: SOURCE_KEY
-      default: lambda.zip
     - name: AWS_ACCESS_KEY_ID
-      default: "REPLACE_ME"  # Replace with your key or pass during PipelineRun
+      default: "REPLACE_ME"  # This will be passed as a parameter from IBM Cloud Environment Variables
     - name: AWS_SECRET_ACCESS_KEY
-      default: "REPLACE_ME"  # Replace with your key or pass during PipelineRun
+      default: "REPLACE_ME"  # This will be passed as a parameter from IBM Cloud Environment Variables
     - name: AWS_SESSION_TOKEN
-      default: ""
+      default: ""  # This will be passed if using AWS session tokens (optional)
     - name: AWS_REGION
       default: ca-central-1
 
   tasks:
-    - name: print-aws-params
+    - name: print-aws-variables
       taskSpec:
         params:
+          - name: AWS_DEFAULT_REGION
           - name: AWS_ACCESS_KEY_ID
           - name: AWS_SECRET_ACCESS_KEY
           - name: AWS_SESSION_TOKEN
           - name: AWS_REGION
         steps:
-          - name: print-aws-params
+          - name: print-variables
             image: ubuntu:22.04
             env:
+              - name: AWS_DEFAULT_REGION
+                value: $(params.AWS_DEFAULT_REGION)
               - name: AWS_ACCESS_KEY_ID
-                value: $(params.AWS_ACCESS_KEY_ID)
+                value: $(params.AWS_ACCESS_KEY_ID)  # Access key from parameters
               - name: AWS_SECRET_ACCESS_KEY
-                value: $(params.AWS_SECRET_ACCESS_KEY)
+                value: $(params.AWS_SECRET_ACCESS_KEY)  # Secret key from parameters
               - name: AWS_SESSION_TOKEN
-                value: $(params.AWS_SESSION_TOKEN)
+                value: $(params.AWS_SESSION_TOKEN)  # Session token if provided
               - name: AWS_REGION
                 value: $(params.AWS_REGION)
             script: |
               #!/usr/bin/env bash
               set -euo pipefail
+              echo "AWS_REGION: ${AWS_REGION:-<empty>}"
+              echo "AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-<empty>}"
               echo "AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-<empty>}"
               echo "AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-<empty>}"
               echo "AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN:-<empty>}"
-              echo "AWS_REGION: ${AWS_REGION:-<empty>}"
-
-          - name: fetch-and-deploy
-            image: ubuntu:22.04
-            env:
-              - name: AWS_ACCESS_KEY_ID
-                value: $(params.AWS_ACCESS_KEY_ID)
-              - name: AWS_SECRET_ACCESS_KEY
-                value: $(params.AWS_SECRET_ACCESS_KEY)
-              - name: AWS_SESSION_TOKEN
-                value: $(params.AWS_SESSION_TOKEN)
-              - name: AWS_REGION
-                value: $(params.AWS_REGION)
-            script: |
-              # Your existing script logic for deploying Lambda
-              echo "Deploying Lambda with the provided credentials and parameters."
