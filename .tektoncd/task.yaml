@@ -1,1 +1,12 @@
-
+# task.yaml for hello world
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: hello-world-task
+spec:
+  steps:
+    - name: hello-world
+      image: busybox
+      script: |
+        #!/bin/sh
+        echo "Hello, World!"
