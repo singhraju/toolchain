@@ -1,0 +1,11 @@
+---
+apiVersion: tekton.dev/v1beta1
+kind: TriggerBinding
+metadata:
+  name: cd-binding
+spec:
+  params:
+    - name: event-payload
+      value: $(body)
+    - name: target-environment-ref
+      value: $(body.ref)
