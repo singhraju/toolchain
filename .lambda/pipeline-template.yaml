@@ -1,0 +1,7 @@
+apiVersion: tekton.dev/v1alpha1
+kind: PipelineTemplate
+metadata:
+  name: simple-pipeline-template
+spec:
+  pipelineRef:
+    name: simple-pipeline
