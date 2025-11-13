@@ -1,11 +1,11 @@
-apiVersion: triggers.tekton.dev/v1beta1
+apiVersion: tekton.dev/v1alpha1
 kind: EventListener
 metadata:
-  name: lambda-listener
+  name: simple-eventlistener
 spec:
   triggers:
-    - name: lambda-trigger
+    - name: simple-trigger
       bindings:
-        - ref: lambda-binding
+        - ref: trigger-binding
       template:
-        ref: lambda-template
+        ref: simple-pipeline-template
