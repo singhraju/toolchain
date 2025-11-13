@@ -1,1 +1,10 @@
+# trigger-binding.yaml for hello world
+apiVersion: tekton.dev/v1beta1
+kind: TriggerBinding
+metadata:
+  name: hello-world-trigger-binding
+spec:
+  params:
+    - name: message
+      value: "$(body.message)"
 
