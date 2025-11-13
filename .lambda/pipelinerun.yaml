@@ -23,11 +23,11 @@ spec:
     - name: SOURCE_KEY
       value: lambda.zip
     - name: AWS_ACCESS_KEY_ID
-      value: AKIA5FTZEWWEST5T6JO2  # Ensure the key is injected from environment properties
+      value: $(AWS_ACCESS_KEY_ID)  # Use the environment variables set securely in IBM Cloud
     - name: AWS_SECRET_ACCESS_KEY
-      value: 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  # Ensure the key is injected from environment properties
-    #- name: AWS_SESSION_TOKEN
-    #  value: $(AWS_SESSION_TOKEN)  # If using session tokens, ensure it's passed here
+      value: $(AWS_SECRET_ACCESS_KEY)  # Use the environment variables set securely in IBM Cloud
+    - name: AWS_SESSION_TOKEN
+      value: $(AWS_SESSION_TOKEN)  # Optional: If using temporary credentials
   workspaces:
     - name: ws
       emptyDir: {}
