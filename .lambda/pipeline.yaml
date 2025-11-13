@@ -52,7 +52,6 @@ spec:
         workspaces:
           - name: ws
         steps:
-          # 0) Verify creds & region are injected (no secret printing)
           - name: verify-aws-env
             image: ubuntu:22.04
             env:
@@ -60,19 +59,18 @@ spec:
                 value: $(params.AWS_DEFAULT_REGION)
               - name: AWS_DEFAULT_REGION
                 value: $(params.AWS_DEFAULT_REGION)
-              # Referencing Secure Environment Properties (values are injected by IBM Cloud)
+              # Correctly reference Secure Environment Properties
               - name: AWS_ACCESS_KEY_ID
-                value: $(AWS_ACCESS_KEY_ID)  # Directly referencing the environment variable
+                value: $(AWS_ACCESS_KEY_ID)  # Ensure this is injected correctly
               - name: AWS_SECRET_ACCESS_KEY
-                value: $(AWS_SECRET_ACCESS_KEY)  # Directly referencing the environment variable
+                value: $(AWS_SECRET_ACCESS_KEY)  # Ensure this is injected correctly
               - name: AWS_SESSION_TOKEN
-                value: $(AWS_SESSION_TOKEN)  # Optional, if using session tokens
+                value: $(AWS_SESSION_TOKEN)   # Optional if using session tokens
             script: |
               #!/usr/bin/env bash
               set -euo pipefail
               echo "AWS_REGION: ${AWS_REGION:-<empty>}"
               echo "AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-<empty>}"
-              # Directly print the environment variables
               echo -n "AWS_ACCESS_KEY_ID: "; echo "${AWS_ACCESS_KEY_ID:-<empty>}"
               echo -n "AWS_SECRET_ACCESS_KEY: "; echo "${AWS_SECRET_ACCESS_KEY:-<empty>}"
               echo -n "AWS_SESSION_TOKEN: "; echo "${AWS_SESSION_TOKEN:-<empty>}"
