@@ -92,11 +92,6 @@ spec:
             script: |
               #!/usr/bin/env bash
               set -euo pipefail
-              mask() {
-                v="${1:-}"; if [ -z "$v" ]; then echo "<empty>"; else
-                  printf "%s***%s (len %d)\n" "${v:0:2}" "${v: -2}" "${#v}"
-                fi
-              }
               echo "AWS_REGION: ${AWS_REGION:-<empty>}"
               echo "AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-<empty>}"
               echo -n "AWS_ACCESS_KEY_ID: "; "${AWS_ACCESS_KEY_ID:-}"
