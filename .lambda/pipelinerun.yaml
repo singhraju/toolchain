@@ -1,33 +1,10 @@
 apiVersion: tekton.dev/v1
 kind: PipelineRun
 metadata:
-  name: lambda-from-s3-zip-run
+  name: simple-pipelinerun
 spec:
   pipelineRef:
-    name: lambda-from-s3-zip-pipeline
+    name: simple-pipeline
   params:
-    - name: AWS_DEFAULT_REGION
-      value: ca-central-1
-    - name: AWS_REGION
-      value: ca-central-1
-    - name: FUNCTION_NAME
-      value: rajusin4-lambda
-    - name: ROLE_NAME
-      value: lambda-basic-exec
-    - name: RUNTIME
-      value: python3.11
-    - name: HANDLER
-      value: handler.lambda_handler
-    - name: SOURCE_BUCKET
-      value: amzn-cicd-bucket
-    - name: SOURCE_KEY
-      value: lambda.zip
-    - name: AWS_ACCESS_KEY_ID
-      value: $(AWS_ACCESS_KEY_ID)  # Use the environment variables set securely in IBM Cloud
-    - name: AWS_SECRET_ACCESS_KEY
-      value: $(AWS_SECRET_ACCESS_KEY)  # Use the environment variables set securely in IBM Cloud
-    - name: AWS_SESSION_TOKEN
-      value: $(AWS_SESSION_TOKEN)  # Optional: If using temporary credentials
-  workspaces:
-    - name: ws
-      emptyDir: {}
+    - name: MESSAGE
+      value: "Hello from Tekton on IBM Cloud!"
