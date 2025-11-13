@@ -1,1 +1,21 @@
-
+# trigger-template.yaml for hello world
+apiVersion: tekton.dev/v1beta1
+kind: TriggerTemplate
+metadata:
+  name: hello-world-trigger-template
+spec:
+  params:
+    - name: message
+      description: The message to print
+      default: "Hello from IBM Toolchain!"
+  resourcetemplates:
+    - apiVersion: tekton.dev/v1beta1
+      kind: PipelineRun
+      metadata:
+        generateName: hello-world-pipelinerun
+      spec:
+        pipelineRef:
+          name: hello-world-pipeline
+        params:
+          - name: message
+            value: "$(params.message)"
