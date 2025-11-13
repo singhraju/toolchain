@@ -11,7 +11,7 @@ spec:
     - name: AWS_REGION
       value: ca-central-1
     - name: FUNCTION_NAME
-      value: rajusin4-lambda
+      value: "rajusin4-lambda"
     - name: ROLE_NAME
       value: lambda-basic-exec
     - name: RUNTIME
@@ -19,9 +19,9 @@ spec:
     - name: HANDLER
       value: handler.lambda_handler
     - name: SOURCE_BUCKET
-      value: amzn-cicd-bucket
+      value: "amzn-cicd-bucket"
     - name: SOURCE_KEY
-      value: lambda.zip
+      value: "lambda.zip"
     # ---- "HARDCODED" CREDS (DEMO ONLY) ----
     - name: AWS_ACCESS_KEY_ID
       value: "AKIA5FTZEWWEST5T6JO2"
